@@ -12,10 +12,15 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Highlighter } from "../Functions/activate";
 import "../Css/Chess.css";
 import Validator from "../Functions/isvalid";
+
 const Board = () => {
   const [boardState, setBoardState] = useState([]); //holding current state of the board in form of the matrix
   const [selector, setSelector] = useState({ occupied: false, x: "", y: "" }); // for setting initial starting position
   const [isReverseVis, setIsReverseVis] = useState(false);
+  const [playerKills, setPlayerkills] = useState({
+    whiteKill: [],
+    BlackKill: []
+  });
   //const istrue = Validator(1, 2, "pawn");
 
   let ReverseBoardMatrix;
@@ -104,7 +109,7 @@ const Board = () => {
   }, []);
 
   const hndlr = (event) => {
-    Highlighter(event.currentTarget); //highlighting current selecte block
+    Highlighter(event.currentTarget); //highlighting current selected block
     let y = event.currentTarget.id % 10; //extracting X,Y co-ordinates of the selected block
     let x = (event.currentTarget.id - y) / 10;
 
@@ -128,9 +133,32 @@ const Board = () => {
           peiceProp: temp.peiceProp
         };
         setBoardState([...board_matrix]);
-      } else if (x !== selector.x || y !== selector.y) {
+      } else if (
+        (x !== selector.x || y !== selector.y) &&
+        board_matrix[x][y].peiceProp.peice_color !==
+          board_matrix[selector.x][selector.y].peiceProp.peice_color
+      ) {
         // condtion if destination is not an empty block as well as the initial position itself.
         console.log("cordinates are", x, y);
+        let temp = board_matrix[x][y];
+        board_matrix[x][y] = {
+          ...board_matrix[x][y],
+          peiceProp: board_matrix[selector.x][selector.y].peiceProp
+        };
+        board_matrix[selector.x][selector.y] = {
+          ...board_matrix[selector.x][selector.y],
+          peiceProp: { peice: peices.empty, peice_color: "" }
+        };
+        setBoardState([...board_matrix]);
+        temp.peiceProp.peice_color === "bl"
+          ? setPlayerkills({
+              ...playerKills,
+              whiteKill: [...playerKills.whiteKill, temp.peiceProp.peice]
+            })
+          : setPlayerkills({
+              ...playerKills,
+              BlackKill: [...playerKills.BlackKill, temp.peiceProp.peice]
+            });
       }
     }
   };
@@ -153,21 +181,23 @@ const Board = () => {
   };
 
   useEffect(() => {
+    //for re-setting initial-starting  position to null after a move is completed
     if (selector.occupied != false) {
       setSelector({ ...selector, occupied: false, x: "", y: "" }); //caution don't touch hook dependency '[boardState]'
     }
   }, [boardState]);
 
   const toggleView = () => {
+    //to change inbetween perspective of both the players
     setIsReverseVis((state) => !state);
   };
 
-  return (
-    <div>
-      {!isReverseVis && (
-        <div className="holder">
-          {console.log("in  render", board_matrix)}
-          {boardState.map((row) => {
+  const boardDisplay = (matrix) => {
+    //function to display board using matrix of the game.
+    return (
+      <div className="holder">
+        {matrix &&
+          matrix.map((row) => {
             let sub_arr;
             sub_arr = row.map((box_attr) => {
               return box(
@@ -179,28 +209,38 @@ const Board = () => {
             });
             return <div className="inner">{sub_arr}</div>;
           })}
+      </div>
+    );
+  };
+  const displayKill = (kill) => {
+    // console.log(kill);
+    return (
+      <span className="kill">
+        <FontAwesomeIcon icon={kill} size="2x" />
+      </span>
+    );
+  };
+
+  return (
+    <div>
+      {!isReverseVis && boardDisplay(boardState)}
+      {isReverseVis && boardDisplay(ReverseBoardMatrix)}
+      <div className="killContainer">
+        <div className="killArea" id="black">
+          <span className="ttle">White's Kills</span>
+          {playerKills.whiteKill.map((kill) => {
+            console.log(kill);
+            return displayKill(kill);
+          })}
         </div>
-      )}
-      {isReverseVis && (
-        <div className="holder">
-          {ReverseBoardMatrix &&
-            console.log("in reverse render", ReverseBoardMatrix)}
-          {ReverseBoardMatrix &&
-            ReverseBoardMatrix.map((row) => {
-              let sub_arr;
-              sub_arr = row.map((box_attr) => {
-                return box(
-                  box_attr.cell.color,
-                  box_attr.peiceProp.peice,
-                  box_attr.peiceProp.peice_color,
-                  box_attr.cell.posx * 10 + box_attr.cell.posy
-                );
-              });
-              return <div className="inner">{sub_arr}</div>;
-            })}
+        <div className="killArea" id="white">
+          <span className="ttle">Black's Kills</span>
+          {playerKills.BlackKill.map((kill) => {
+            return displayKill(kill);
+          })}
         </div>
-      )}
-      <button onClick={toggleView}> Toggle View </button>
+        <button onClick={toggleView}> Toggle View </button>
+      </div>
     </div>
   );
 };
